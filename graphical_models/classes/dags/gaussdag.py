@@ -71,7 +71,7 @@ class GaussDAG(DAG):
         return GaussDAG(nodes=self._nodes, arcs=self.arc_weights, biases=self._biases, variances=self._variances)
 
     @classmethod
-    def from_amat(cls, weight_mat, nodes=None, biases=None, variances=None):
+    def from_amat(cls, weight_mat, nodes=None, arcs=None, biases=None, variances=None):
         """
         Return a GaussDAG with arc weights specified by weight mat.
 
@@ -90,7 +90,7 @@ class GaussDAG(DAG):
         TODO
         """
         nodes = nodes if nodes is not None else list(range(weight_mat.shape[0]))
-        arcs = {(i, j): w for (i, j), w in np.ndenumerate(weight_mat) if w != 0}
+        arcs = arcs if arcs is not None else {(i, j): w for (i, j), w in np.ndenumerate(weight_mat) if w != 0}
         return cls(nodes=nodes, arcs=arcs, biases=biases, variances=variances)
 
     @classmethod
@@ -124,6 +124,8 @@ class GaussDAG(DAG):
         variances = np.zeros(p)
         for node in dag.nodes:
             parents = list(dag.parents_of(node)) + [p]
+            node = dag._node2ix[node]
+            parents = [dag._node2ix[pa] for pa in parents]
             coefs, _, _, _ = lstsq(cov[np.ix_(parents, parents)], cov[parents, node])
             bias = coefs[-1]
             variance = cov[node, node] - coefs.T @ cov[np.ix_(parents, parents)] @ coefs
@@ -132,6 +134,8 @@ class GaussDAG(DAG):
             variances[node] = variance
         return GaussDAG.from_amat(
             amat,
+            nodes=dag._node_list,
+            arcs=dag.arcs,
             biases=biases,
             variances=variances
         )
@@ -697,7 +701,7 @@ class GaussDAG(DAG):
                 elif isinstance(interventional_dist, PerfectInterventionalDistribution):
                     samples[:, ix] = interventional_dist.sample(nsamples)
             elif len(parent_ixs) != 0:
-                samples[:, ix] = np.sum(parent_vals * self._weight_mat[parent_ixs, node], axis=1) + noise[:, ix]
+                samples[:, ix] = np.sum(parent_vals * self._weight_mat[parent_ixs, ix], axis=1) + noise[:, ix]
             else:
                 samples[:, ix] = noise[:, ix]
 
@@ -759,7 +763,7 @@ class GaussDAG(DAG):
         bias = self._biases[node_ix]
         return parent_vals @ coefs + bias
 
-    def logpdf(self, samples: np.array, interventions: PerfectIntervention = None,
+    def logpdf(self, samples: np.array, interventions: PerfectIntervention = None, special_node=None,
                exclude_intervention_prob=True) -> np.array:
         # TODO this is about 10x slower than using multivariate_normal.logpdf with the covariance matrix
         # TODO can I speed this up? where is the time spent?
