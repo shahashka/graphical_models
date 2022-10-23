@@ -125,7 +125,7 @@ class GaussDAG(DAG):
         for node in dag.nodes:
             parents = list(dag.parents_of(node)) + [p]
             node = dag._node2ix[node]
-            parents = [dag._node2ix[pa] for pa in parents]
+            parents = [pa if type(pa)==int else dag._node2ix[pa] for pa in parents]
             coefs, _, _, _ = lstsq(cov[np.ix_(parents, parents)], cov[parents, node])
             bias = coefs[-1]
             variance = cov[node, node] - coefs.T @ cov[np.ix_(parents, parents)] @ coefs
