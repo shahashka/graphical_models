@@ -111,7 +111,7 @@ class BinaryIntervention(PerfectInterventionalDistribution):
         return samples
 
     def pdf(self, vals: np.ndarray) -> float:
-        return self.p * self.intervention1.pdf(vals) + (1 - self.p) * self.intervention2.pdf(vals)
+        return self.p * self.intervention1.pdf(vals[0]) + (1 - self.p) * self.intervention2.pdf(vals[1])
 
 
 @dataclass
